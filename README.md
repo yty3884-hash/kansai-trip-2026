@@ -1,0 +1,1 @@
+# kansai-trip-2026
