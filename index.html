@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2026 關西之旅 Final Fix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-color: #fcf9f2; --primary-pink: #ffb7b2; --text-main: #5d5d5d; }
+        body { background-color: var(--bg-color); color: var(--text-main); font-family: 'M PLUS Rounded 1c', sans-serif; padding-bottom: 110px; overflow-x: hidden; }
+        #splash-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #fff5f5 0%, #fff 100%); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s; }
+        .loader-heart { font-size: 3rem; color: var(--primary-pink); animation: pulse 1.2s ease-in-out infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
+        .banner-wrapper { width: 100%; height: 200px; border-radius: 0 0 40px 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-bottom: 4px solid var(--primary-pink); background: #fff; overflow: hidden; }
+        .banner-img { width: 100%; height: 100%; object-fit: cover; }
+        .floating-tabs { position: fixed; bottom: 20px; left: 15px; right: 15px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); padding: 8px; border-radius: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; justify-content: space-around; z-index: 1000; }
+        .tab-btn { flex: 1; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.65rem; color: #bbb; transition: 0.2s; }
+        .tab-btn.active { color: var(--primary-pink); transform: translateY(-3px); }
+        .app-card { background: white; border-radius: 20px; box-shadow: 0 8px 15px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid rgba(0,0,0,0.02); overflow: hidden; }
+        .cat-tag { font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 6px; color: white; display: inline-block; }
+        .bg-flight { background-color: #60a5fa; } .bg-hotel { background-color: #a78bfa; } .bg-sight { background-color: #34d399; } .bg-food { background-color: #fb923c; } .bg-shop { background-color: #f472b6; }
+        .order-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: #e2e8f0; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="splash-screen">
+    <div class="loader-heart"><i class="fa-solid fa-heart"></i></div>
+    <p class="mt-4 font-bold text-pink-300 tracking-widest">JAPAN 2026</p>
+</div>
+
+<div id="app" v-cloak>
+    <div class="banner-wrapper"><img src="banner.png" onerror="this.src='https://placehold.co/600x400/ffb7b2/ffffff?text=Chiikawa+Kansai'" class="banner-img"></div>
+
+    <div class="main-content max-w-md mx-auto px-4 -mt-8 relative z-20">
+        <div v-show="currentTab === 1">
+            <div class="flex overflow-x-auto gap-2 hide-scrollbar mb-4 py-2">
+                <div v-for="(day, index) in schedule" :key="index" @click="selectedDayIndex = index"
+                     class="flex-shrink-0 w-14 h-18 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all border-2"
+                     :class="selectedDayIndex === index ? 'bg-white border-pink-300 text-pink-400 shadow-md' : 'bg-white/60 border-transparent text-gray-400'">
+                    <span class="text-[10px] font-bold">{{ getDayOfWeek(day.date) }}</span>
+                    <span class="text-xl font-bold">{{ getDayNum(day.date) }}</span>
+                </div>
+            </div>
+            <div class="pb-24">
+                <div v-for="(event, index) in currentDayEvents" :key="event.id" class="app-card p-4 flex items-center gap-2">
+                    <div class="flex flex-col gap-1">
+                        <button @click.stop="moveEvent(index, -1)" class="order-btn"><i class="fa-solid fa-caret-up"></i></button>
+                        <button @click.stop="moveEvent(index, 1)" class="order-btn"><i class="fa-solid fa-caret-down"></i></button>
+                    </div>
+                    <div class="flex-1" @click="openMap(event.name)">
+                        <span :class="'cat-tag bg-' + event.type">{{ getCategoryName(event.type) }}</span>
+                        <h3 class="font-bold text-slate-700 text-lg leading-tight">{{ event.name }}</h3>
+                        <div class="text-xs text-slate-400 mt-1 font-bold">🕒 {{ event.time }} <span v-if="event.fee" class="ml-2">¥{{ event.fee }}</span></div>
+                        <p v-if="event.note" class="text-[10px] text-gray-400 mt-2 border-l-2 border-pink-100 pl-2 italic">{{ event.note }}</p>
+                    </div>
+                    <button @click.stop="openEditModal(index)" class="p-2 text-gray-300"><i class="fa-solid fa-pen-to-square"></i></button>
+                </div>
+                <button @click="openAddModal" class="fixed bottom-28 right-6 w-14 h-14 bg-pink-400 text-white rounded-full shadow-xl flex items-center justify-center text-2xl z-50"><i class="fa-solid fa-plus"></i></button>
+            </div>
+        </div>
+
+        <div v-show="currentTab === 2" class="pb-24 pt-4">
+            <div v-for="(rest, index) in restaurants" :key="index" class="app-card p-4 flex justify-between">
+                <div @click="openMap(rest.name)">
+                    <div class="font-bold text-slate-700 text-lg">{{ rest.name }}</div>
+                    <div class="text-xs text-orange-400 font-bold mb-2">{{ rest.hours }}</div>
+                    <p v-if="rest.note" class="text-xs text-gray-400 border-t pt-2">{{ rest.note }}</p>
+                </div>
+                <button @click.stop="removeRestaurant(index)" class="text-red-200 p-2"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+            <button @click="showRestModal = true" class="fixed bottom-28 right-6 w-14 h-14 bg-orange-400 text-white rounded-full shadow-xl z-50"><i class="fa-solid fa-utensils"></i></button>
+        </div>
+
+        <div v-show="currentTab === 3" class="pb-24 pt-4 text-center">
+            <div class="app-card p-6 bg-gradient-to-br from-blue-400 to-indigo-500 text-white mb-6">
+                <h3 class="font-bold mb-4 tracking-wider text-sm">💰 匯率換算 (100円 = $5.04)</h3>
+                <div class="flex items-center justify-center gap-2 mb-2">
+                    <span class="text-lg">¥</span>
+                    <input type="number" v-model="currencyInput" class="bg-white/20 w-32 p-2 rounded-lg font-bold text-center text-2xl outline-none border border-white/30 text-white">
+                </div>
+                <div class="text-4xl font-bold mt-4">HKD ${{ (currencyInput * 0.0504).toFixed(2) }}</div>
+            </div>
+            <div class="app-card p-5 text-left">
+                <h3 class="font-bold text-slate-700 mb-4"><i class="fa-solid fa-plane-up mr-2 text-pink-400"></i>最新航班資訊</h3>
+                <div class="space-y-4">
+                    <div class="bg-blue-50 p-4 rounded-xl border-l-4 border-blue-400">
+                        <div class="font-bold text-xs flex justify-between mb-1 text-blue-600"><span>去程 UO688</span><span>01/08 (四)</span></div>
+                        <div class="font-bold text-lg">14:55 ➔ 19:20</div>
+                    </div>
+                    <div class="bg-pink-50 p-4 rounded-xl border-l-4 border-pink-400">
+                        <div class="font-bold text-xs flex justify-between mb-1 text-pink-600"><span>回程 UO687</span><span>01/13 (二)</span></div>
+                        <div class="font-bold text-lg">14:15 ➔ 18:00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-show="currentTab === 4" class="pb-24 pt-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div v-for="(item, index) in shoppingList" :key="index" class="app-card">
+                    <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
+                        <img v-if="item.img" :src="item.img" class="w-full h-full object-cover">
+                        <i v-else class="fa-solid fa-bag-shopping text-gray-300 text-3xl"></i>
+                    </div>
+                    <div class="p-2">
+                        <div class="text-xs font-bold truncate">{{ item.name }}</div>
+                        <div class="flex justify-between items-center mt-2">
+                            <a v-if="item.link" :href="item.link" target="_blank" class="text-[10px] text-blue-400 font-bold">連結</a>
+                            <button @click.stop="removeShoppingItem(index)" class="text-red-200"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button @click="showShoppingModal = true" class="fixed bottom-28 right-6 w-14 h-14 bg-pink-400 text-white rounded-full shadow-xl z-50"><i class="fa-solid fa-cart-shopping"></i></button>
+        </div>
+
+        <div v-show="currentTab === 5" class="pb-24 pt-4">
+            <div class="app-card p-6 bg-slate-800 text-white mb-5 flex justify-between items-end">
+                <div><p class="text-[10px] text-emerald-400 font-bold uppercase">Grand Total</p><h2 class="text-4xl font-bold">¥{{ totalExpenses.toLocaleString() }}</h2></div>
+                <p class="text-xs opacity-60">≈ HKD {{ (totalExpenses * 0.0504).toFixed(0) }}</p>
+            </div>
+            <div v-for="(exp, index) in expenses" :key="index" class="app-card p-4 flex justify-between items-center">
+                <div><div class="font-bold text-slate-700">{{ exp.name }}</div><div class="text-xs text-gray-400 font-bold">¥{{ exp.amount }}</div></div>
+                <button @click.stop="removeExpense(index)" class="text-red-200 p-2"><i class="fa-solid fa-circle-xmark"></i></button>
+            </div>
+            <button @click="showExpenseModal = true" class="fixed bottom-28 right-6 w-14 h-14 bg-emerald-500 text-white rounded-full shadow-xl z-50"><i class="fa-solid fa-coins"></i></button>
+        </div>
+    </div>
+
+    <nav class="floating-tabs">
+        <div v-for="tab in tabs" :key="tab.id" @click="currentTab = tab.id" class="tab-btn" :class="{ active: currentTab === tab.id }"><i :class="tab.icon"></i><span>{{ tab.name }}</span></div>
+    </nav>
+
+    <div v-if="showEventModal" class="fixed inset-0 bg-black/70 z-[2000] flex items-end" @click.self="closeModal">
+        <div class="bg-white w-full rounded-t-[35px] p-6 pb-12">
+            <h3 class="font-bold text-xl mb-5">{{ isEditing ? '修改行程' : '新增目的地' }}</h3>
+            <input type="text" v-model="temp.name" class="w-full bg-gray-50 p-4 rounded-xl font-bold mb-4 outline-none" placeholder="目的地名稱">
+            <div class="flex gap-2 overflow-x-auto hide-scrollbar mb-4">
+                <button v-for="cat in categories" @click="temp.type = cat.id" :class="temp.type === cat.id ? 'bg-slate-700 text-white' : 'bg-gray-100 text-gray-400'" class="px-4 py-2 rounded-full text-[10px] font-bold flex-shrink-0">{{ cat.name }}</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mb-4"><input type="text" v-model="temp.time" class="bg-gray-50 p-4 rounded-xl text-sm" placeholder="時間"><input type="number" v-model="temp.fee" class="bg-gray-50 p-4 rounded-xl text-sm" placeholder="預算(¥)"></div>
+            <textarea v-model="temp.note" class="w-full bg-gray-50 p-4 rounded-xl text-sm mb-6 outline-none" rows="3" placeholder="備註..."></textarea>
+            <div class="flex gap-3"><button v-if="isEditing" @click="deleteEvent" class="flex-1 bg-red-50 text-red-500 py-4 rounded-xl font-bold">刪除</button><button @click="saveEvent" class="flex-[2] bg-pink-400 text-white py-4 rounded-xl font-bold">確認儲存</button></div>
+        </div>
+    </div>
+
+    <div v-if="showRestModal" class="fixed inset-0 bg-black/70 z-[2000] flex items-end" @click.self="showRestModal = false"><div class="bg-white w-full rounded-t-[35px] p-6 pb-12"><h3 class="font-bold text-xl mb-5 text-orange-400">新增美食</h3><input type="text" v-model="tempRest.name" class="w-full bg-gray-50 p-4 rounded-xl mb-3" placeholder="餐廳"><input type="text" v-model="tempRest.hours" class="w-full bg-gray-50 p-4 rounded-xl mb-3" placeholder="時間"><textarea v-model="tempRest.note" class="w-full bg-gray-50 p-4 rounded-xl mb-6" placeholder="備註"></textarea><button @click="addRestaurant" class="w-full bg-orange-400 text-white py-4 rounded-xl font-bold">儲存</button></div></div>
+    <div v-if="showShoppingModal" class="fixed inset-0 bg-black/70 z-[2000] flex items-end" @click.self="showShoppingModal = false"><div class="bg-white w-full rounded-t-[35px] p-6 pb-12"><h3 class="font-bold text-xl mb-5 text-pink-400">購物清單</h3><input type="text" v-model="tempShopping.name" class="w-full bg-gray-50 p-4 rounded-xl mb-3" placeholder="商品"><input type="text" v-model="tempShopping.img" class="w-full bg-gray-50 p-4 rounded-xl mb-3" placeholder="圖片連結"><input type="text" v-model="tempShopping.link" class="w-full bg-gray-50 p-4 rounded-xl mb-6" placeholder="購買連結"><button @click="addShoppingItem" class="w-full bg-pink-400 text-white py-4 rounded-xl font-bold">儲存</button></div></div>
+    <div v-if="showExpenseModal" class="fixed inset-0 bg-black/70 z-[2000] flex items-end" @click.self="showExpenseModal = false"><div class="bg-white w-full rounded-t-[35px] p-6 pb-12"><h3 class="font-bold text-xl mb-5 text-emerald-500">新增支出</h3><input type="text" v-model="tempExpense.name" class="w-full bg-gray-50 p-4 rounded-xl mb-3" placeholder="項目"><input type="number" v-model="tempExpense.amount" class="w-full bg-gray-50 p-4 rounded-xl mb-6 font-bold" placeholder="金額(¥)"><button @click="addExpense" class="w-full bg-emerald-500 text-white py-4 rounded-xl font-bold">紀錄</button></div></div>
+</div>
+
+<script type="module">
+    import { createApp, ref, onMounted, computed } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref as dbRef, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDe-dFRTOxwoAgafrM4vjCjNdUpKfYCrso",
+        authDomain: "trip-2026.firebaseapp.com",
+        databaseURL: "https://trip-2026-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "trip-2026",
+        storageBucket: "trip-2026.firebasestorage.app",
+        messagingSenderId: "228992095250",
+        appId: "1:228992095250:web:7207ba8c76952be87f34cb"
+    };
+
+    const fb = initializeApp(firebaseConfig);
+    const db = getDatabase(fb);
+    const PATH = 'kansai_vfinal_fix';
+
+    createApp({
+        setup() {
+            const currentTab = ref(1);
+            const selectedDayIndex = ref(0);
+            const currencyInput = ref(100);
+            const isSyncing = ref(false);
+
+            const schedule = ref([{date:'2026-01-08',events:[]},{date:'2026-01-09',events:[]},{date:'2026-01-10',events:[]},{date:'2026-01-11',events:[]},{date:'2026-01-12',events:[]},{date:'2026-01-13',events:[]}]);
+            const restaurants = ref([]);
+            const shoppingList = ref([]);
+            const expenses = ref([]);
+
+            const tabs = [{id:1,name:'行程',icon:'fa-solid fa-calendar-day'},{id:2,name:'美食',icon:'fa-solid fa-utensils'},{id:3,name:'資訊',icon:'fa-solid fa-plane'},{id:4,name:'購物',icon:'fa-solid fa-cart-shopping'},{id:5,name:'記帳',icon:'fa-solid fa-wallet'}];
+            const categories = [{id:'flight',name:'✈️航班'},{id:'hotel',name:'🏨住宿'},{id:'sight',name:'⛩️景點'},{id:'food',name:'🍱美食'},{id:'shop',name:'🛍️購物'}];
+
+            const showEventModal = ref(false);
+            const isEditing = ref(false);
+            const editIdx = ref(-1);
+            const temp = ref({name:'',type:'sight',time:'',fee:'',note:''});
+
+            const showRestModal = ref(false);
+            const tempRest = ref({name:'',hours:'',note:''});
+            const showShoppingModal = ref(false);
+            const tempShopping = ref({name:'',img:'',link:''});
+            const showExpenseModal = ref(false);
+            const tempExpense = ref({name:'',amount:''});
+
+            // 計算當前選中日期的所有行程 (修復關鍵)
+            const currentDayEvents = computed(() => {
+                if (schedule.value[selectedDayIndex.value]) {
+                    return schedule.value[selectedDayIndex.value].events || [];
+                }
+                return [];
+            });
+
+            const commit = async () => {
+                const dataToSave = {
+                    schedule: JSON.parse(JSON.stringify(schedule.value)),
+                    restaurants: JSON.parse(JSON.stringify(restaurants.value)),
+                    shoppingList: JSON.parse(JSON.stringify(shoppingList.value)),
+                    expenses: JSON.parse(JSON.stringify(expenses.value))
+                };
+                try {
+                    await set(dbRef(db, PATH), dataToSave);
+                } catch (e) { console.error("Save failed", e); }
+            };
+
+            // 重要修復：確保 saveEvent 抓取的 selectedDayIndex 是實時的
+            const saveEvent = async () => {
+                if(!temp.value.name) return;
+                isSyncing.value = true;
+                
+                // 找到對應那一天的行程陣列
+                let dayData = schedule.value[selectedDayIndex.value];
+                if (!dayData.events) dayData.events = [];
+                
+                if(isEditing.value) {
+                    dayData.events[editIdx.value] = { ...temp.value };
+                } else {
+                    dayData.events.push({ ...temp.value, id: Date.now() });
+                }
+                
+                await commit();
+                closeModal();
+            };
+
+            const moveEvent = async (idx, dir) => {
+                isSyncing.value = true;
+                let evts = [...schedule.value[selectedDayIndex.value].events];
+                let target = idx + dir;
+                if (target >= 0 && target < evts.length) {
+                    [evts[idx], evts[target]] = [evts[target], evts[idx]];
+                    schedule.value[selectedDayIndex.value].events = evts;
+                    await commit();
+                }
+                setTimeout(()=>isSyncing.value=false, 500);
+            };
+
+            const deleteEvent = async () => {
+                if(!confirm("確定刪除？")) return;
+                isSyncing.value = true;
+                schedule.value[selectedDayIndex.value].events.splice(editIdx.value, 1);
+                await commit();
+                closeModal();
+            };
+
+            const addRestaurant = () => { if(!tempRest.value.name)return; restaurants.value.push({...tempRest.value}); commit(); showRestModal.value=false; tempRest.value={name:'',hours:'',note:''}; };
+            const removeRestaurant = (i) => { restaurants.value.splice(i,1); commit(); };
+            const addShoppingItem = () => { if(!tempShopping.value.name)return; shoppingList.value.push({...tempShopping.value}); commit(); showShoppingModal.value=false; tempShopping.value={name:'',img:'',link:''}; };
+            const removeShoppingItem = (i) => { shoppingList.value.splice(i,1); commit(); };
+            const addExpense = () => { if(!tempExpense.value.name)return; expenses.value.push({...tempExpense.value}); commit(); showExpenseModal.value=false; tempExpense.value={name:'',amount:''}; };
+            const removeExpense = (i) => { expenses.value.splice(i,1); commit(); };
+
+            const openAddModal = () => { isSyncing.value = true; isEditing.value = false; temp.value = {name:'',type:'sight',time:'',fee:'',note:''}; showEventModal.value = true; };
+            const openEditModal = (idx) => { isSyncing.value = true; isEditing.value = true; editIdx.value = idx; temp.value = JSON.parse(JSON.stringify(schedule.value[selectedDayIndex.value].events[idx])); showEventModal.value = true; };
+            const closeModal = () => { showEventModal.value = false; setTimeout(()=>isSyncing.value=false, 800); };
+
+            onMounted(() => {
+                onValue(dbRef(db, PATH), (snap) => {
+                    if (isSyncing.value) return;
+                    const data = snap.val();
+                    if (data) {
+                        schedule.value = data.schedule || schedule.value;
+                        restaurants.value = data.restaurants || [];
+                        shoppingList.value = data.shoppingList || [];
+                        expenses.value = data.expenses || [];
+                    }
+                    setTimeout(() => {
+                        const s = document.getElementById('splash-screen');
+                        if(s) { s.style.opacity='0'; setTimeout(()=>s.style.display='none', 800); }
+                    }, 1000);
+                });
+            });
+
+            return { currentTab, tabs, selectedDayIndex, schedule, categories, showEventModal, isEditing, temp, saveEvent, deleteEvent, openAddModal, openEditModal, closeModal, moveEvent, currencyInput, restaurants, showRestModal, tempRest, addRestaurant, removeRestaurant, shoppingList, showShoppingModal, tempShopping, addShoppingItem, removeShoppingItem, expenses, showExpenseModal, tempExpense, addExpense, removeExpense, currentDayEvents, totalExpenses: computed(()=>expenses.value.reduce((s,e)=>s+Number(e.amount||0), 0)), getDayOfWeek: d => ['SUN','MON','TUE','WED','THU','FRI','SAT'][new Date(d).getDay()], getDayNum: d => new Date(d).getDate(), getCategoryName: t => categories.find(c=>c.id===t)?.name || '行程', openMap: q => window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q)) };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
